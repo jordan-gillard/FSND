@@ -34,11 +34,6 @@ migrate = Migrate(app, db)
 # Models.
 # ----------------------------------------------------------------------------#
 
-artist_genres_table = db.Table('ArtistGenres',
-                               db.Column('genre_id', db.Integer, db.ForeignKey('Genre.id'), primary_key=True),
-                               db.Column('artist_id', db.Integer, db.ForeignKey('Artist.id'), primary_key=True)
-                               )
-
 
 class Genre(db.Model):
     __tablename__ = 'Genre'
@@ -53,12 +48,9 @@ class Show(db.Model):
     start_time = db.Column(db.DateTime)
     artist_id = db.Column(db.Integer, ForeignKey('Artist.id'))
 
-    # venue = relationship("Venue", back_populates="shows")
-
 
 class Venue(db.Model):
     __tablename__ = 'Venue'
-
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
     address = db.Column(db.String(120))
@@ -70,11 +62,7 @@ class Venue(db.Model):
     seeking_talent = db.Column(db.Boolean)
     seeking_description = db.Column(db.String(120))
     image_link = db.Column(db.String(500))
-
-    # past/upcoming show count should calculate when returned
-    # just use Show table for past and upcoming shows, and check the timestamp.
     genres = db.Column(db.String)
-    # shows = relationship("Show", back_populates="Venue")
     shows = relationship("Show")
 
     def __repr__(self):
@@ -86,7 +74,6 @@ class Venue(db.Model):
 
 class Artist(db.Model):
     __tablename__ = 'Artist'
-
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
     city = db.Column(db.String(120))
@@ -96,7 +83,7 @@ class Artist(db.Model):
     seeking_venue = db.Column(db.Boolean)
     image_link = db.Column(db.String(500))
 
-    genres = relationship("Genre", secondary=artist_genres_table)
+    genres = db.Column(db.String)
 
 
 # ----------------------------------------------------------------------------#
@@ -479,13 +466,20 @@ def create_artist_form():
 @app.route('/artists/create', methods=['POST'])
 def create_artist_submission():
     # called upon submitting the new artist listing form
-    # TODO: insert form data as a new Venue record in the db, instead
-    # TODO: modify data to be the data object returned from db insertion
-
-    # on successful db insert, flash success
-    flash('Artist ' + request.form['name'] + ' was successfully listed!')
-    # TODO: on unsuccessful db insert, flash an error instead.
-    # e.g., flash('An error occurred. Artist ' + data.name + ' could not be listed.')
+    data = request.form
+    try:
+        new_artist = Artist()
+        for key, value in data.items():
+            setattr(new_artist, key, value)
+        db.session.add(new_artist)
+        db.session.commit()
+        flash('Artist ' + request.form['name'] + ' was successfully listed!')
+    except Exception as e:
+        logging.error(e)
+        db.session.rollback()
+        flash('An error occurred. Artist ' + data['name'] + ' could not be listed.')
+    finally:
+        db.session.close()
     return render_template('pages/home.html')
 
 
