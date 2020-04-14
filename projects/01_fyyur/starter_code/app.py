@@ -84,7 +84,7 @@ class Venue(db.Model):
                f"image_link={self.image_link}, genres={self.genres}, shows={self.shows})"
 
     @property
-    def upcoming_shows(self):
+    def upcoming_shows_count(self):
         return sum(1 for show in self.shows if show.start_time > datetime.now())
 
 
@@ -102,6 +102,9 @@ class Artist(db.Model):
 
     genres = relationship("Genre", secondary=artist_genres_table)
 
+    @property
+    def upcoming_shows_count(self):
+        return sum(1 for show in Show.query.filter_by(artist_id=self.id).all() if show.start_time > datetime.now())
 
 # ----------------------------------------------------------------------------#
 # Filters.
@@ -144,7 +147,7 @@ def venues():
             "venues": [{
                 "id": venue.id,
                 "name": venue.name,
-                "num_upcoming_shows": venue.upcoming_shows
+                "num_upcoming_shows": venue.upcoming_shows_count
             } for venue in venues_in_city_state]
         })
     return render_template('pages/venues.html', areas=data)
@@ -303,16 +306,15 @@ def artists():
 
 @app.route('/artists/search', methods=['POST'])
 def search_artists():
-    # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
-    # search for "A" should return "Guns N Petals", "Matt Quevado", and "The Wild Sax Band".
-    # search for "band" should return "The Wild Sax Band".
+    search_term = request.form.get('search_term', '')
+    found_artists = Artist.query.filter(Artist.name.ilike(f'%{search_term}%')).all()
     response = {
-        "count": 1,
+        "count": len(found_artists),
         "data": [{
-            "id": 4,
-            "name": "Guns N Petals",
-            "num_upcoming_shows": 0,
-        }]
+            "id": artist.id,
+            "name": artist.name,
+            "num_upcoming_shows": artist.upcoming_shows_count,
+        } for artist in found_artists]
     }
     return render_template('pages/search_artists.html', results=response,
                            search_term=request.form.get('search_term', ''))
