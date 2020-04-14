@@ -83,6 +83,10 @@ class Venue(db.Model):
                f"seeking_talent={self.seeking_talent}, seeking_description={self.seeking_description}, " \
                f"image_link={self.image_link}, genres={self.genres}, shows={self.shows})"
 
+    @property
+    def upcoming_shows(self):
+        return sum(1 for show in self.shows if show.start_time > datetime.now())
+
 
 class Artist(db.Model):
     __tablename__ = 'Artist'
@@ -129,29 +133,20 @@ def index():
 
 @app.route('/venues')
 def venues():
-    # TODO: replace with real venues data.
-    #       num_shows should be aggregated based on number of upcoming shows per venue.
-    data = [{
-        "city": "San Francisco",
-        "state": "CA",
-        "venues": [{
-            "id": 1,
-            "name": "The Musical Hop",
-            "num_upcoming_shows": 0,
-        }, {
-            "id": 3,
-            "name": "Park Square Live Music & Coffee",
-            "num_upcoming_shows": 1,
-        }]
-    }, {
-        "city": "New York",
-        "state": "NY",
-        "venues": [{
-            "id": 2,
-            "name": "The Dueling Pianos Bar",
-            "num_upcoming_shows": 0,
-        }]
-    }]
+    all_cities = set([(city, state) for city, state in [(venue.city, venue.state)
+                      for venue in Venue.query.all()]])
+    data = []
+    for city, state in all_cities:
+        venues_in_city_state = Venue.query.filter_by(state=state).filter_by(city=city).all()
+        data.append({
+            "city": city,
+            "state": state,
+            "venues": [{
+                "id": venue.id,
+                "name": venue.name,
+                "num_upcoming_shows": venue.upcoming_shows
+            } for venue in venues_in_city_state]
+        })
     return render_template('pages/venues.html', areas=data)
 
 
