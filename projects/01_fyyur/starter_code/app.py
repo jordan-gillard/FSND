@@ -2,16 +2,14 @@
 # Imports
 # ----------------------------------------------------------------------------#
 
-import json
 import dateutil.parser
 import babel
-from flask import Flask, render_template, request, Response, flash, redirect, url_for
+from flask import Flask, render_template, request, flash, redirect, url_for
 from flask_migrate import Migrate
 from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy
 import logging
 from logging import Formatter, FileHandler
-from flask_wtf import Form
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
 
@@ -53,8 +51,6 @@ class Show(db.Model):
     start_time = db.Column(db.DateTime)
     artist_id = db.Column(db.Integer, ForeignKey('Artist.id'))
 
-    # venue = relationship("Venue", back_populates="shows")
-
 
 class Venue(db.Model):
     __tablename__ = 'Venue'
@@ -71,10 +67,7 @@ class Venue(db.Model):
     seeking_description = db.Column(db.String(120))
     image_link = db.Column(db.String(500))
 
-    # past/upcoming show count should calculate when returned
-    # just use Show table for past and upcoming shows, and check the timestamp.
     genres = db.Column(db.String)
-    # shows = relationship("Show", back_populates="Venue")
     shows = relationship("Show")
 
     def __repr__(self):
@@ -106,17 +99,18 @@ class Artist(db.Model):
     def upcoming_shows_count(self):
         return sum(1 for show in Show.query.filter_by(artist_id=self.id).all() if show.start_time > datetime.now())
 
+
 # ----------------------------------------------------------------------------#
 # Filters.
 # ----------------------------------------------------------------------------#
 
-def format_datetime(value, format='medium'):
+def format_datetime(value, frmat='medium'):
     date = dateutil.parser.parse(value)
-    if format == 'full':
-        format = "EEEE MMMM, d, y 'at' h:mma"
-    elif format == 'medium':
-        format = "EE MM, dd, y h:mma"
-    return babel.dates.format_datetime(date, format)
+    if frmat == 'full':
+        frmat = "EEEE MMMM, d, y 'at' h:mma"
+    elif frmat == 'medium':
+        frmat = "EE MM, dd, y h:mma"
+    return babel.dates.format_datetime(date, frmat)
 
 
 app.jinja_env.filters['datetime'] = format_datetime
@@ -137,7 +131,7 @@ def index():
 @app.route('/venues')
 def venues():
     all_cities = set([(city, state) for city, state in [(venue.city, venue.state)
-                      for venue in Venue.query.all()]])
+                                                        for venue in Venue.query.all()]])
     data = []
     for city, state in all_cities:
         venues_in_city_state = Venue.query.filter_by(state=state).filter_by(city=city).all()
@@ -155,16 +149,15 @@ def venues():
 
 @app.route('/venues/search', methods=['POST'])
 def search_venues():
-    # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
-    # seach for Hop should return "The Musical Hop".
-    # search for "Music" should return "The Musical Hop" and "Park Square Live Music & Coffee"
+    search_term = request.form.get('search_term', '')
+    found_venues = Venue.query.filter(Venue.name.ilike(f'%{search_term}%')).all()
     response = {
-        "count": 1,
+        "count": len(found_venues),
         "data": [{
-            "id": 2,
-            "name": "The Dueling Pianos Bar",
-            "num_upcoming_shows": 0,
-        }]
+            "id": venue.id,
+            "name": venue.name,
+            "num_upcoming_shows": venue.upcoming_shows_count,
+        } for venue in found_venues]
     }
     return render_template('pages/search_venues.html', results=response,
                            search_term=request.form.get('search_term', ''))
