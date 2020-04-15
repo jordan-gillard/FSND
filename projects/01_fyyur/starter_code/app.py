@@ -4,6 +4,8 @@
 
 import dateutil.parser
 import babel
+from babel import default_locale
+from babel.dates import get_timezone
 from flask import Flask, render_template, request, flash, redirect, url_for
 from flask_migrate import Migrate
 from flask_moment import Moment
@@ -26,7 +28,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 moment = Moment(app)
 app.config.from_object('config')
 db = SQLAlchemy(app)
-migrate = Migrate(app, db)
+migrate = Migrate(app, db, compare_type=True)
 
 # ----------------------------------------------------------------------------#
 # Models.
@@ -47,9 +49,27 @@ class Genre(db.Model):
 class Show(db.Model):
     __tablename__ = 'Shows'
     id = db.Column(db.Integer, primary_key=True)
-    venue_id = db.Column(db.Integer, ForeignKey('Venue.id'))
-    start_time = db.Column(db.DateTime)
-    artist_id = db.Column(db.Integer, ForeignKey('Artist.id'))
+    venue_id = db.Column(db.Integer, ForeignKey('Venue.id'), nullable=False)
+    start_time = db.Column(db.DateTime, nullable=False)
+    artist_id = db.Column(db.Integer, ForeignKey('Artist.id'), nullable=False)
+
+    @property
+    def artist_name(self):
+        artist = Artist.query.filter_by(id=self.artist_id).first()
+        return artist.name
+
+    @property
+    def artist_image_link(self):
+        artist = Artist.query.filter_by(id=self.artist_id).first()
+        return artist.image_link
+
+    def serialize(self):
+        return {
+            'artist_id': self.artist_id,
+            'artist_name': self.artist_name,
+            'artist_image_link': self.artist_image_link,
+            'start_time': self.start_time.strftime('%Y-%m-%d %H:%M:%S')
+        }
 
 
 class Venue(db.Model):
@@ -68,7 +88,7 @@ class Venue(db.Model):
     image_link = db.Column(db.String(500))
 
     genres = db.Column(db.String)
-    shows = relationship("Show")
+    shows = relationship("Show", backref="venue")
 
     def __repr__(self):
         return f"Venue(id={self.id}, name={self.name}, address={self.address}, city={self.city}, state={self.state}," \
@@ -78,7 +98,38 @@ class Venue(db.Model):
 
     @property
     def upcoming_shows_count(self):
-        return sum(1 for show in self.shows if show.start_time > datetime.now())
+        return len(self.upcoming_shows)
+
+    @property
+    def past_shows_count(self):
+        return len(self.past_shows)
+
+    @property
+    def past_shows(self):
+        return [show.serialize() for show in self.shows if show.start_time < datetime.now()]
+
+    @property
+    def upcoming_shows(self):
+        return [show.serialize() for show in self.shows if show.start_time > datetime.now()]
+
+    def serialize(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "genres": [self.genres],
+            "address": self.address,
+            "city": self.city,
+            "state": self.state,
+            "phone": self.phone,
+            "website": self.website,
+            "facebook_link": self.facebook_link,
+            "seeking_talent": self.seeking_talent,
+            "image_link": self.image_link,
+            "past_shows": self.past_shows,
+            "upcoming_shows": self.upcoming_shows,
+            "past_shows_count": self.past_shows_count,
+            "upcoming_shows_count": self.upcoming_shows_count
+        }
 
 
 class Artist(db.Model):
@@ -94,15 +145,32 @@ class Artist(db.Model):
     image_link = db.Column(db.String(500))
 
     genres = relationship("Genre", secondary=artist_genres_table)
+    # shows = relationship("Show")
 
     @property
     def upcoming_shows_count(self):
-        return sum(1 for show in Show.query.filter_by(artist_id=self.id).all() if show.start_time > datetime.now())
+        return sum(1 for show in self.shows if show.start_time > datetime.now())
+
+    @property
+    def past_shows_count(self):
+        return sum(1 for show in self.shows if show.start_time < datetime.now())
 
 
 # ----------------------------------------------------------------------------#
 # Filters.
 # ----------------------------------------------------------------------------#
+
+# def format_datetime(value, frmat='medium'):
+#     print("format_datetime value is: ", value)
+#     print("format_datetime frmat is: ", frmat)
+#     date = dateutil.parser.parse(value)
+#     print("date: ", date)
+#     if frmat == 'full':
+#         frmat = "EEEE MMMM, d, y 'at' h:mma"
+#     elif frmat == 'medium':
+#         frmat = "EE MM, dd, y h:mma"
+#     # return babel.dates.format_datetime(date, frmat, locale='en_US')
+#     return babel.dates.format_datetime(date, frmat, locale=default_locale('LC_TIME'))
 
 def format_datetime(value, frmat='medium'):
     date = dateutil.parser.parse(value)
@@ -110,10 +178,11 @@ def format_datetime(value, frmat='medium'):
         frmat = "EEEE MMMM, d, y 'at' h:mma"
     elif frmat == 'medium':
         frmat = "EE MM, dd, y h:mma"
-    return babel.dates.format_datetime(date, frmat)
+    return babel.dates.format_datetime(date, frmat, tzinfo=get_timezone('US/Eastern'), locale='en_US')
 
 
 app.jinja_env.filters['datetime'] = format_datetime
+# app.jinja_env.filters['datetime'] = babel.dates.format_datetime
 
 
 # ----------------------------------------------------------------------------#
@@ -165,48 +234,6 @@ def search_venues():
 
 @app.route('/venues/<int:venue_id>')
 def show_venue(venue_id):
-    # shows the venue page with the given venue_id
-    # TODO: replace with real venue data from the venues table, using venue_id
-    data1 = {
-        "id": 1,
-        "name": "The Musical Hop",
-        "genres": ["Jazz", "Reggae", "Swing", "Classical", "Folk"],
-        "address": "1015 Folsom Street",
-        "city": "San Francisco",
-        "state": "CA",
-        "phone": "123-123-1234",
-        "website": "https://www.themusicalhop.com",
-        "facebook_link": "https://www.facebook.com/TheMusicalHop",
-        "seeking_talent": True,
-        "seeking_description": "We are on the lookout for a local artist to play every two weeks. Please call us.",
-        "image_link": "https://images.unsplash.com/photo-1543900694-133f37abaaa5?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=400&q=60",
-        "past_shows": [{
-            "artist_id": 4,
-            "artist_name": "Guns N Petals",
-            "artist_image_link": "https://images.unsplash.com/photo-1549213783-8284d0336c4f?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=300&q=80",
-            "start_time": "2019-05-21T21:30:00.000Z"
-        }],
-        "upcoming_shows": [],
-        "past_shows_count": 1,
-        "upcoming_shows_count": 0,
-    }
-    data2 = {
-        "id": 2,
-        "name": "The Dueling Pianos Bar",
-        "genres": ["Classical", "R&B", "Hip-Hop"],
-        "address": "335 Delancey Street",
-        "city": "New York",
-        "state": "NY",
-        "phone": "914-003-1132",
-        "website": "https://www.theduelingpianos.com",
-        "facebook_link": "https://www.facebook.com/theduelingpianos",
-        "seeking_talent": False,
-        "image_link": "https://images.unsplash.com/photo-1497032205916-ac775f0649ae?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=750&q=80",
-        "past_shows": [],
-        "upcoming_shows": [],
-        "past_shows_count": 0,
-        "upcoming_shows_count": 0,
-    }
     data3 = {
         "id": 3,
         "name": "Park Square Live Music & Coffee",
@@ -244,8 +271,12 @@ def show_venue(venue_id):
         "past_shows_count": 1,
         "upcoming_shows_count": 1,
     }
-    data = list(filter(lambda d: d['id'] == venue_id, [data1, data2, data3]))[0]
-    return render_template('pages/show_venue.html', venue=data)
+    venue = Venue.query.filter_by(id=venue_id).first()
+    # print("SERIALIZED VENUE IS:")
+    # print(venue.serialize())
+    return render_template('pages/show_venue.html', venue=venue.serialize())
+    # return render_template('pages/show_venue.html', venue=data3)
+
 
 
 #  Create Venue
@@ -315,7 +346,7 @@ def search_artists():
 
 @app.route('/artists/<int:artist_id>')
 def show_artist(artist_id):
-    # shows the venue page with the given venue_id
+    # shows the artist page with the given artist_id
     # TODO: replace with real artist data from the artist table, using artist_id
     data1 = {
         "id": 4,
@@ -358,6 +389,36 @@ def show_artist(artist_id):
         "upcoming_shows": [],
         "past_shows_count": 1,
         "upcoming_shows_count": 0,
+    }
+    artist = Artist.query.filter_by(id=artist_id).first()
+    data = {
+        "id": artist.id,
+        "name": artist.name,
+        "genres": [artist.genres],
+        "city": artist.city,
+        "state": artist.state,
+        "phone": artist.phone,
+        "seeking_venue": artist.seeking_venue,
+        "image_link": artist.image_link,
+        "past_shows": [],
+        "upcoming_shows": [{
+            "venue_id": 3,
+            "venue_name": "Park Square Live Music & Coffee",
+            "venue_image_link": "https://images.unsplash.com/photo-1485686531765-ba63b07845a7?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=747&q=80",
+            "start_time": "2035-04-01T20:00:00.000Z"
+        }, {
+            "venue_id": 3,
+            "venue_name": "Park Square Live Music & Coffee",
+            "venue_image_link": "https://images.unsplash.com/photo-1485686531765-ba63b07845a7?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=747&q=80",
+            "start_time": "2035-04-08T20:00:00.000Z"
+        }, {
+            "venue_id": 3,
+            "venue_name": "Park Square Live Music & Coffee",
+            "venue_image_link": "https://images.unsplash.com/photo-1485686531765-ba63b07845a7?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=747&q=80",
+            "start_time": "2035-04-15T20:00:00.000Z"
+        }],
+        "past_shows_count": artist.past_shows_count,
+        "upcoming_shows_count": artist.upcoming_shows_count,
     }
     data3 = {
         "id": 6,
