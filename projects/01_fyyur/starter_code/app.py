@@ -302,7 +302,7 @@ def create_venue_submission():
     data = request.form
     try:
         new_venue = Venue()
-        _edit_or_create_venue_or_artist(new_venue, request.form)
+        _edit_or_create_db_item(new_venue, request.form)
         flash('Venue ' + request.form['name'] + ' was successfully listed!')
     except Exception as e:
         logging.error(e)
@@ -381,7 +381,8 @@ def edit_venue(venue_id):
     return render_template('forms/edit_venue.html', form=form, venue=venue.serialize())
 
 
-def _edit_or_create_venue_or_artist(db_item, form):
+def _edit_or_create_db_item(db_item, form):
+    """Used to create a new artist, venue, or show."""
     try:
         for key, value in form.items():
             if key.lower() != 'genres':
@@ -402,14 +403,14 @@ def _edit_or_create_venue_or_artist(db_item, form):
 @app.route('/artists/<int:artist_id>/edit', methods=['POST'])
 def edit_artist_submission(artist_id):
     artist = Artist.query.filter_by(id=artist_id).first()
-    _edit_or_create_venue_or_artist(artist, request.form)
+    _edit_or_create_db_item(artist, request.form)
     return redirect(url_for('show_artist', artist_id=artist_id))
 
 
 @app.route('/venues/<int:venue_id>/edit', methods=['POST'])
 def edit_venue_submission(venue_id):
     venue = Venue.query.filter_by(id=venue_id).first()
-    _edit_or_create_venue_or_artist(venue, request.form)
+    _edit_or_create_db_item(venue, request.form)
     return redirect(url_for('show_venue', venue_id=venue_id))
 
 
@@ -426,7 +427,7 @@ def create_artist_form():
 def create_artist_submission():
     # called upon submitting the new artist listing form
     new_artist = Artist()
-    _edit_or_create_venue_or_artist(new_artist, request.form)
+    _edit_or_create_db_item(new_artist, request.form)
     return render_template('pages/home.html')
 
 
@@ -450,14 +451,8 @@ def create_shows():
 
 @app.route('/shows/create', methods=['POST'])
 def create_show_submission():
-    # called to create new shows in the db, upon submitting new show listing form
-    # TODO: insert form data as a new Show record in the db, instead
-
-    # on successful db insert, flash success
-    flash('Show was successfully listed!')
-    # TODO: on unsuccessful db insert, flash an error instead.
-    # e.g., flash('An error occurred. Show could not be listed.')
-    # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
+    new_show = Show()
+    _edit_or_create_db_item(new_show, request.form)
     return render_template('pages/home.html')
 
 
