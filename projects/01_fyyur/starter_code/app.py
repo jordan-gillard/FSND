@@ -4,7 +4,6 @@
 
 import dateutil.parser
 import babel
-from babel import default_locale
 from babel.dates import get_timezone
 from flask import Flask, render_template, request, flash, redirect, url_for
 from flask_migrate import Migrate
@@ -107,7 +106,6 @@ class Show(db.Model):
 
 class Venue(db.Model):
     __tablename__ = 'Venue'
-
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
     address = db.Column(db.String(120))
@@ -168,7 +166,6 @@ class Venue(db.Model):
 
 class Artist(db.Model):
     __tablename__ = 'Artist'
-
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
     city = db.Column(db.String(120))
