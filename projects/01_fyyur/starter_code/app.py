@@ -39,6 +39,11 @@ artist_genres_table = db.Table('ArtistGenres',
                                db.Column('artist_id', db.Integer, db.ForeignKey('Artist.id'), primary_key=True)
                                )
 
+venue_genres_table = db.Table('VenueGenres',
+                              db.Column('genre_id', db.Integer, db.ForeignKey('Genre.id'), primary_key=True),
+                              db.Column('venue_id', db.Integer, db.ForeignKey('Venue.id'), primary_key=True)
+                              )
+
 
 class Genre(db.Model):
     __tablename__ = 'Genre'
@@ -105,7 +110,7 @@ class Venue(db.Model):
     seeking_description = db.Column(db.String(120))
     image_link = db.Column(db.String(500))
 
-    genres = db.Column(db.String)
+    genres = relationship("Genre", secondary=venue_genres_table)
     shows = relationship("Show", backref="venue")
 
     def __repr__(self):
@@ -134,7 +139,7 @@ class Venue(db.Model):
         return {
             "id": self.id,
             "name": self.name,
-            "genres": [self.genres],
+            "genres": [genre.name for genre in self.genres],
             "address": self.address,
             "city": self.city,
             "state": self.state,
@@ -287,10 +292,7 @@ def create_venue_submission():
     data = request.form
     try:
         new_venue = Venue()
-        for key, value in data.items():
-            setattr(new_venue, key, value)
-        db.session.add(new_venue)
-        db.session.commit()
+        _edit_or_create_venue_or_artist(new_venue, request.form)
         flash('Venue ' + request.form['name'] + ' was successfully listed!')
     except Exception as e:
         logging.error(e)
@@ -354,20 +356,6 @@ def edit_artist(artist_id):
     return render_template('forms/edit_artist.html', form=form, artist=artist.serialize())
 
 
-@app.route('/artists/<int:artist_id>/edit', methods=['POST'])
-def edit_artist_submission(artist_id):
-    artist = Artist.query.filter_by(id=artist_id).first()
-    for key, value in request.form.items():
-        if key.lower() != 'genres':
-            setattr(artist, key, value)
-        else:
-            genre = Genre.query.filter_by(name=value).first()
-            artist.genres = [genre]
-    db.session.add(artist)
-    db.session.commit()
-    return redirect(url_for('show_artist', artist_id=artist_id))
-
-
 @app.route('/venues/<int:venue_id>/edit', methods=['GET'])
 def edit_venue(venue_id):
     form = VenueForm()
@@ -375,10 +363,28 @@ def edit_venue(venue_id):
     return render_template('forms/edit_venue.html', form=form, venue=venue.serialize())
 
 
+def _edit_or_create_venue_or_artist(db_item, form):
+    for key, value in form.items():
+        if key.lower() != 'genres':
+            setattr(db_item, key, value)
+        else:
+            genre = Genre.query.filter_by(name=value).first()
+            db_item.genres = [genre]
+    db.session.add(db_item)
+    db.session.commit()
+
+
+@app.route('/artists/<int:artist_id>/edit', methods=['POST'])
+def edit_artist_submission(artist_id):
+    artist = Artist.query.filter_by(id=artist_id).first()
+    _edit_or_create_venue_or_artist(artist, request.form)
+    return redirect(url_for('show_artist', artist_id=artist_id))
+
+
 @app.route('/venues/<int:venue_id>/edit', methods=['POST'])
 def edit_venue_submission(venue_id):
-    # TODO: take values from the form submitted, and update existing
-    # venue record with ID <venue_id> using the new attributes
+    venue = Venue.query.filter_by(id=venue_id).first()
+    _edit_or_create_venue_or_artist(venue, request.form)
     return redirect(url_for('show_venue', venue_id=venue_id))
 
 
