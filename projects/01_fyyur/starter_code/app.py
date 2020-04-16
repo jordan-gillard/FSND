@@ -305,8 +305,16 @@ def create_venue_submission():
 
 @app.route('/venues/<venue_id>', methods=['DELETE'])
 def delete_venue(venue_id):
-    # TODO: Complete this endpoint for taking a venue_id, and using
-    #  SQLAlchemy ORM to delete a record. Handle cases where the session commit could fail.
+    try:
+        Venue.query.filter_by(id=venue_id).delete()
+        db.session.commit()
+        flash('Venue ' + request.form['name'] + ' was successfully deleted!')
+    except Exception as e:
+        flash('An error occurred. The venue could not be deleted.')
+        print(e)
+        db.session.rollback()
+    finally:
+        db.session.close()
 
     # BONUS CHALLENGE: Implement a button to delete a Venue on a Venue Page, have it so that
     # clicking that button delete it from the db then redirect the user to the homepage
@@ -364,14 +372,21 @@ def edit_venue(venue_id):
 
 
 def _edit_or_create_venue_or_artist(db_item, form):
-    for key, value in form.items():
-        if key.lower() != 'genres':
-            setattr(db_item, key, value)
-        else:
-            genre = Genre.query.filter_by(name=value).first()
-            db_item.genres = [genre]
-    db.session.add(db_item)
-    db.session.commit()
+    try:
+        for key, value in form.items():
+            if key.lower() != 'genres':
+                setattr(db_item, key, value)
+            else:
+                genre = Genre.query.filter_by(name=value).first()
+                db_item.genres = [genre]
+        db.session.add(db_item)
+        db.session.commit()
+    except Exception as e:
+        flash('An error occurred.')
+        print(e)
+        db.session.rollback()
+    finally:
+        db.session.close()
 
 
 @app.route('/artists/<int:artist_id>/edit', methods=['POST'])
@@ -400,13 +415,8 @@ def create_artist_form():
 @app.route('/artists/create', methods=['POST'])
 def create_artist_submission():
     # called upon submitting the new artist listing form
-    # TODO: insert form data as a new Venue record in the db, instead
-    # TODO: modify data to be the data object returned from db insertion
-
-    # on successful db insert, flash success
-    flash('Artist ' + request.form['name'] + ' was successfully listed!')
-    # TODO: on unsuccessful db insert, flash an error instead.
-    # e.g., flash('An error occurred. Artist ' + data.name + ' could not be listed.')
+    new_artist = Artist()
+    _edit_or_create_venue_or_artist(new_artist, request.form)
     return render_template('pages/home.html')
 
 
