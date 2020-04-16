@@ -355,9 +355,15 @@ def edit_artist(artist_id):
 
 @app.route('/artists/<int:artist_id>/edit', methods=['POST'])
 def edit_artist_submission(artist_id):
-    # TODO: take values from the form submitted, and update existing
-    # artist record with ID <artist_id> using the new attributes
-
+    artist = Artist.query.filter_by(id=artist_id).first()
+    for key, value in request.form.items():
+        if key.lower() != 'genres':
+            setattr(artist, key, value)
+        else:
+            genre = Genre.query.filter_by(name=value).first()
+            artist.genres = [genre]
+    db.session.add(artist)
+    db.session.commit()
     return redirect(url_for('show_artist', artist_id=artist_id))
 
 
