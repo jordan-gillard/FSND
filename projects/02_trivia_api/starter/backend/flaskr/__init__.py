@@ -1,3 +1,4 @@
+import json
 import os
 from flask import Flask, request, abort, jsonify
 from flask_sqlalchemy import SQLAlchemy
@@ -15,6 +16,46 @@ def create_app(test_config=None):
     setup_db(app)
     CORS(app)  # CORS by default allows '*' for all origins.
 
+    @app.errorhandler(400)
+    def bad_request(*args):
+        return jsonify({
+            'success': False,
+            'error': 400,
+            'message': 'Bad request'
+        }), 400
+
+    @app.errorhandler(404)
+    def not_found(*args):
+        return jsonify({
+            'success': False,
+            'error': 404,
+            'message': 'Not found'
+        }), 404
+
+    @app.errorhandler(405)
+    def method_not_allowed(*args):
+        return jsonify({
+            'success': False,
+            'error': 405,
+            'message': 'Method not allowed'
+        }), 405
+
+    @app.errorhandler(422)
+    def unprocessable_entity(*args):
+        return jsonify({
+            'success': False,
+            'error': 422,
+            'message': 'Unprocessable entity'
+        }), 422
+
+    @app.errorhandler(500)
+    def internal_server_error(*args):
+        return jsonify({
+            'success': False,
+            'error': 500,
+            'message': 'Internal server error'
+        }), 500
+
     @app.after_request
     def after_request(response):
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
@@ -23,44 +64,67 @@ def create_app(test_config=None):
 
     @app.route('/categories')
     def get_categories():
-        categories = Category.query.order_by(Category.id).all()
-        return jsonify({
-            'success': True,
-            'data': [category.format() for category in categories]
-        })
+        try:
+            categories = Category.query.order_by(Category.id).all()
+            return jsonify({
+                'success': True,
+                'categories': {category.id: category.type for category in categories}
+            })
+        except:
+            abort(500)
+
+    @app.route('/questions')
+    def get_questions():
+        try:
+            page = request.args.get('page', 1, type=int)
+            questions = Question.query.order_by(Question.id).all()
+            start = (page - 1) * QUESTIONS_PER_PAGE
+            end = start + QUESTIONS_PER_PAGE
+            questions_list = [question.format() for question in questions][start:end]
+            if not questions_list:
+                abort(400)
+            categories = {category.id: category.type for category in Category.query.order_by(Category.id).all()}
+            return jsonify({
+                'success': True,
+                'questions': questions_list,
+                'total_questions': len(questions),
+                'categories': categories,
+                'current_category': "Science"  # Since the front end doesn't tell us what category it's on in this request,
+            })                                 #  we default to Science.
+        except:
+            abort(400)
+
+    @app.route('/questions/<question_id>', methods=['DELETE'])
+    def delete_question(question_id):
+        question = Question.query.filter(Question.id == question_id).one_or_none()
+        if question:
+            question.delete()
+            return jsonify({
+                'success': True
+            })
+        else:
+            abort(404)
+
+    @app.route('/questions', methods=['POST'])
+    def create_question():
+        try:
+            data = json.loads(request.data)
+            print(data)
+            question = data['question']
+            answer = data['answer']
+            difficulty = data['difficulty']
+            category = data['category']
+            if not (question and answer and difficulty and category):
+                abort(400)
+            new_question = Question(question, answer, category, difficulty)
+            new_question.insert()
+            return jsonify({
+                'success': True,
+            })
+        except:
+            abort(422)
 
 
-    '''
-    #TODO: 
-    Create an endpoint to handle GET requests for questions, 
-    including pagination (every 10 questions). 
-    This endpoint should return a list of questions, 
-    number of total questions, current category, categories. 
-  
-    TEST: At this point, when you start the application
-    you should see questions and categories generated,
-    ten questions per page and pagination at the bottom of the screen for three pages.
-    Clicking on the page numbers should update the questions. 
-    '''
-
-    '''
-    #TODO: 
-    Create an endpoint to DELETE question using a question ID. 
-  
-    TEST: When you click the trash icon next to a question, the question will be removed.
-    This removal will persist in the database and when you refresh the page. 
-    '''
-
-    '''
-    #TODO: 
-    Create an endpoint to POST a new question, 
-    which will require the question and answer text, 
-    category, and difficulty score.
-  
-    TEST: When you submit a question on the "Add" tab, 
-    the form will clear and the question will appear at the end of the last page
-    of the questions list in the "List" tab.  
-    '''
 
     '''
     #TODO: 
