@@ -89,8 +89,9 @@ def create_app(test_config=None):
                 'questions': questions_list,
                 'total_questions': len(questions),
                 'categories': categories,
-                'current_category': "Science"  # Since the front end doesn't tell us what category it's on in this request,
-            })                                 #  we default to Science.
+                'current_category': "Science"
+                # Since the front end doesn't tell us what category it's on in this request,
+            })  # we default to Science.
         except:
             abort(400)
 
@@ -134,6 +135,9 @@ def create_app(test_config=None):
     @app.route('/categories/<category_id>/questions')
     def get_questions_by_category(category_id):
         category = Category.query.filter(Category.id == category_id).one_or_none()
+        if not category:
+            abort(404)
+
         questions = Question.query.filter(Question.category == category.id).all()
         return jsonify({
             'success': True,
