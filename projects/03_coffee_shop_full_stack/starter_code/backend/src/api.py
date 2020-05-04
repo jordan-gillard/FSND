@@ -11,12 +11,12 @@ app = Flask(__name__)
 setup_db(app)
 CORS(app)
 
-'''
-@TODO uncomment the following line to initialize the datbase
-!! NOTE THIS WILL DROP ALL RECORDS AND START YOUR DB FROM SCRATCH
-!! NOTE THIS MUST BE UNCOMMENTED ON FIRST RUN
-'''
-# db_drop_and_create_all()
+
+# @TODO uncomment the following line to initialize the database
+# NOTE THIS WILL DROP ALL RECORDS AND START YOUR DB FROM SCRATCH
+# NOTE THIS MUST BE UNCOMMENTED ON FIRST RUN
+
+db_drop_and_create_all()
 
 ## ROUTES
 '''
@@ -75,10 +75,7 @@ CORS(app)
 '''
 
 
-## Error Handling
-'''
-Example error handling for unprocessable entity
-'''
+
 @app.errorhandler(422)
 def unprocessable(error):
     return jsonify({
