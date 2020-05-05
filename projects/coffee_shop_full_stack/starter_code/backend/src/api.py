@@ -43,12 +43,13 @@ def post_drinks(*args):
         new_drink = Drink()
         new_drink.title = new_drink_dict['title']
         new_drink.recipe = json.dumps(new_drink_dict['recipe'])
-        drink = new_drink.long()
         new_drink.insert()
 
     except:
         abort(422)
 
+    drink = Drink.query.filter(Drink.title == new_drink_dict['title']).one()
+    drink = drink.long()
     return jsonify({
         "success": True,
         "drinks": [drink]
@@ -73,7 +74,7 @@ def patch_drink(*args, id):
     return jsonify(
         {
             "success": True,
-            "drinks": drink_info
+            "drinks": [drink_info]
         })
 
 
