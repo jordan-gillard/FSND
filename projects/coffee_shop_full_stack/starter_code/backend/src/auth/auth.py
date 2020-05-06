@@ -16,6 +16,10 @@ class AuthError(Exception):
 
 
 def get_token_auth_header():
+    """
+    Checks that the request has the a correctly formatted
+    Authorization header, and returns the JSON web token.
+    """
     if 'Authorization' not in request.headers:
         raise AuthError
 
@@ -32,6 +36,10 @@ def get_token_auth_header():
 
 
 def check_permissions(permission, payload):
+    """
+    Checks that the given permission, i.e.
+    'patch:drinks' is in the payload.
+    """
     if 'permissions' not in payload.keys():
         raise AuthError
 
@@ -42,6 +50,10 @@ def check_permissions(permission, payload):
 
 
 def verify_decode_jwt(token):
+    """
+    Boilerplate code which contacts Auth0 and provides numerous
+    checks to assert that the given token is valid.
+    """
     jsonurl = urlopen(f'https://{AUTH0_DOMAIN}/.well-known/jwks.json')
     jwks = json.loads(jsonurl.read())
     unverified_header = jwt.get_unverified_header(token)
@@ -96,6 +108,10 @@ def verify_decode_jwt(token):
 
 
 def requires_auth(permission=''):
+    """
+    Decorator for api endpoints which need certain
+    permissions to proceed.
+    """
     def requires_auth_decorator(f):
         @wraps(f)
         def wrapper(*args, **kwargs):

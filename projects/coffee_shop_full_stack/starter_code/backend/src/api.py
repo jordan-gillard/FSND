@@ -15,6 +15,16 @@ db_drop_and_create_all()
 
 @app.route('/drinks')
 def get_drinks(*args):
+    """
+    Returns a JSON response containing a short description
+    of all drinks in the database.
+    Returns:
+        {
+        "success": True,
+        "drinks": drinks
+    }
+    where drinks is an array of all drink's short description.
+    """
     all_drinks = Drink.query.all()
     drinks = [drink.short() for drink in all_drinks]
     return jsonify({
@@ -26,6 +36,16 @@ def get_drinks(*args):
 @app.route('/drinks-detail')
 @requires_auth('get:drinks-detail')
 def get_drinks_detail(*args):
+    """
+    Returns the long description for all drinks in the
+    database.
+    Returns:
+        {
+        "success": True,
+        "drinks": drinks
+    }
+    where drinks is an array of all drink's long description.
+    """
     all_drinks = Drink.query.all()
     drinks = [drink.long() for drink in all_drinks]
     return jsonify({
@@ -37,8 +57,15 @@ def get_drinks_detail(*args):
 @app.route('/drinks', methods=['POST'])
 @requires_auth('post:drinks')
 def post_drinks(*args):
+    """
+    Adds a new drink to the database and returns
+    {
+        "success": True,
+        "drinks": [drink]
+    }
+    if successful, else aborts 422.
+    """
     new_drink_dict = json.loads(request.data)
-    drink = {}
     try:
         new_drink = Drink()
         new_drink.title = new_drink_dict['title']
@@ -59,6 +86,16 @@ def post_drinks(*args):
 @app.route('/drinks/<int:id>', methods=['PATCH'])
 @requires_auth('patch:drinks')
 def patch_drink(*args, id):
+    """
+    Edits the drink with the given id.
+    Returns:
+        {
+            "success": True,
+            "drinks": [drink_info]
+        }
+    where drink_info is the drinks with the given id's
+    long description.
+    """
     try:
         drink = Drink.query.filter(Drink.id == id).one()
     except sqlalchemy.orm.exc.NoResultFound:
@@ -81,6 +118,15 @@ def patch_drink(*args, id):
 @app.route('/drinks/<int:id>', methods=['DELETE'])
 @requires_auth('delete:drinks')
 def delete_drink(*args, id):
+    """
+    Deletes the drink with the given id from the database.
+    Returns:
+        {
+            "success": True,
+            "delete": id
+        }
+    where id is the id of the deleted drink.
+    """
     try:
         drink = Drink.query.filter(Drink.id == id).one()
     except sqlalchemy.orm.exc.NoResultFound:
@@ -91,6 +137,15 @@ def delete_drink(*args, id):
             "success": True,
             "delete": id
         })
+
+
+@app.errorhandler(400)
+def bad_request(error):
+    return jsonify({
+        "success": False,
+        "error": 400,
+        "message": "bad request"
+    }), 400
 
 
 @app.errorhandler(422)
